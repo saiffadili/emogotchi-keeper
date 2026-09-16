@@ -2,8 +2,9 @@ name: Keep Emogotchi Alive
 
 on:
   schedule:
-    # Run away from the top of the hour, when scheduled runners are busiest.
-    - cron: "17 * * * *"
+    # Together these still run hourly. The 18:17 UTC run sends the daily status.
+    - cron: "17 0-17,19-23 * * *"
+    - cron: "17 18 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -28,13 +29,6 @@ jobs:
   check-and-feed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
-      EMOGOTCHI_PRIVATE_KEY: ${{ secrets.EMOGOTCHI_PRIVATE_KEY }}
-      RPC_URL: https://rpc1.monad.xyz
-      CAT_ID: "69869"
-      FEED_THRESHOLD_HOURS: "4"
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true && 'true' || 'false' }}
-      FORCE_FEED: ${{ github.event_name == 'workflow_dispatch' && inputs.force_feed == true && 'true' || 'false' }}
     steps:
       - name: Check out keeper
         uses: actions/checkout@v4
@@ -48,5 +42,30 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Check cat and feed only if needed
+      - name: Check cat, feed if needed, and send alerts
+        id: keeper
+        env:
+          EMOGOTCHI_PRIVATE_KEY: ${{ secrets.EMOGOTCHI_PRIVATE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RPC_URL: https://rpc1.monad.xyz
+          CAT_ID: "69869"
+          FEED_THRESHOLD_HOURS: "4"
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true && 'true' || 'false' }}
+          FORCE_FEED: ${{ github.event_name == 'workflow_dispatch' && inputs.force_feed == true && 'true' || 'false' }}
+          DAILY_STATUS: ${{ github.event_name == 'schedule' && github.event.schedule == '17 18 * * *' && 'true' || 'false' }}
         run: npm run check
+
+      - name: Alert Telegram if workflow setup failed
+        if: ${{ failure() && steps.keeper.outcome != 'failure' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            exit 0
+          fi
+          curl --fail --silent --show-error \
+            --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=🚨 Simba's keeper could not start. Check the GitHub logs: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
