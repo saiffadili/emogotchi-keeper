@@ -36,6 +36,22 @@ To verify a real transaction before the four-hour window:
 
 This deliberately spends 1 MON plus gas and resets the starvation deadline. The force option is off by default and is ignored by scheduled runs.
 
+## Telegram alerts
+
+Add these encrypted repository secrets to enable notifications:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+
+The bot sends:
+
+- A fun daily status around 18:17 UTC with the deadline, stats, and wallet balance.
+- A detailed confirmation and MonadScan link after every successful feed.
+- A safety alert with the reason and GitHub log link if the keeper stops.
+- A status message whenever a manual dry run succeeds.
+
+The Telegram token is scoped only to the keeper step. The wallet private key is also no longer exposed to checkout or dependency-installation steps.
+
 ## Expected cost
 
 With a four-hour safety margin, a feed occurs approximately every 44 hours:
