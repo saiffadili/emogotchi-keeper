@@ -11,6 +11,11 @@ on:
         required: true
         default: true
         type: boolean
+      force_feed:
+        description: "TEST ONLY: spend 1 MON and feed now"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -29,6 +34,7 @@ jobs:
       CAT_ID: "69869"
       FEED_THRESHOLD_HOURS: "4"
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true && 'true' || 'false' }}
+      FORCE_FEED: ${{ github.event_name == 'workflow_dispatch' && inputs.force_feed == true && 'true' || 'false' }}
     steps:
       - name: Check out keeper
         uses: actions/checkout@v4
