@@ -1,0 +1,16 @@
+{
+  "name": "emogotchi-keeper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal survival keeper for one Emogotchi on Monad",
+  "scripts": {
+    "check": "node src/keeper.mjs"
+  },
+  "dependencies": {
+    "ethers": "6.17.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
