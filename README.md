@@ -25,6 +25,17 @@ Never commit a private key to this repository. Never send the key in chat. Store
 7. Check that the log reports the correct cat, owner, balance, and time remaining.
 8. The hourly schedule will then run automatically. Scheduled runs use live mode but only feed inside the four-hour window.
 
+## Optional one-time live feed test
+
+To verify a real transaction before the four-hour window:
+
+1. Open **Actions → Keep Emogotchi Alive → Run workflow**.
+2. Clear **Check everything without sending MON**.
+3. Select **TEST ONLY: spend 1 MON and feed now**.
+4. Run the workflow and confirm that the log contains a MonadScan transaction link and a new deadline.
+
+This deliberately spends 1 MON plus gas and resets the starvation deadline. The force option is off by default and is ignored by scheduled runs.
+
 ## Expected cost
 
 With a four-hour safety margin, a feed occurs approximately every 44 hours:
