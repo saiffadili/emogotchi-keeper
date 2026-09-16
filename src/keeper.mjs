@@ -34,6 +34,67 @@ function formatDuration(seconds) {
   return `${hours}h ${minutes}m`;
 }
 
+function formatMon(value) {
+  const [whole, fraction = ""] = formatEther(value).split(".");
+  const shortFraction = fraction.slice(0, 4).replace(/0+$/, "");
+  return shortFraction ? `${whole}.${shortFraction}` : whole;
+}
+
+function formatDeadline(timestamp) {
+  return new Date(Number(timestamp) * 1000)
+    .toISOString()
+    .replace("T", " ")
+    .replace(".000Z", " UTC");
+}
+
+function catLabel(cat, catId) {
+  const name = cat.name?.trim() || "Simba";
+  return `${name} #${catId}`;
+}
+
+function catStats(cat) {
+  const activity = cat.asleep ? "💤 Sleeping" : cat.poop ? "💩 Needs cleanup" : "😸 Chilling";
+  return [
+    `${activity}${cat.crowned ? " • 👑 Crowned" : ""}`,
+    `🍗 Food ${cat.food}  •  🧼 Clean ${cat.clean}`,
+    `🎾 Fun ${cat.fun}  •  ⚡ Energy ${cat.energy}`,
+    `😺 Mood ${cat.mood}  •  🔥 Streak ${cat.streak}`,
+    `🏆 Score ${cat.score}  •  🍽️ Lifetime feeds ${cat.feeds}`
+  ].join("\n");
+}
+
+function workflowRunUrl() {
+  const repository = process.env.GITHUB_REPOSITORY?.trim();
+  const runId = process.env.GITHUB_RUN_ID?.trim();
+  return repository && runId ? `https://github.com/${repository}/actions/runs/${runId}` : null;
+}
+
+async function notifyTelegram(message) {
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
+  if (!token && !chatId) return false;
+  if (!token || !chatId) {
+    throw new Error("Telegram setup is incomplete: both bot token and chat ID are required");
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: message,
+      disable_web_page_preview: true
+    }),
+    signal: AbortSignal.timeout(15_000)
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.ok !== true) {
+    throw new Error(`Telegram rejected the alert with HTTP ${response.status}`);
+  }
+  console.log("Telegram alert sent.");
+  return true;
+}
+
 function createProvider(rpcUrl) {
   let requestId = 0;
   const transport = {
@@ -65,6 +126,7 @@ async function main() {
   const thresholdSeconds = BigInt(thresholdHours) * 3600n;
   const dryRun = process.env.DRY_RUN?.toLowerCase() === "true";
   const forceFeed = process.env.FORCE_FEED?.toLowerCase() === "true";
+  const dailyStatus = process.env.DAILY_STATUS?.toLowerCase() === "true";
 
   const privateKey = required("EMOGOTCHI_PRIVATE_KEY");
   if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
@@ -109,17 +171,47 @@ async function main() {
     console.log("Manual force-feed requested. The normal threshold is bypassed for this run only.");
   }
 
-  if (!forceFeed && remaining > thresholdSeconds) {
-    console.log("No feed needed. Exiting without spending MON.");
-    return;
-  }
-
   if (remaining <= 0n) {
     throw new Error("Safety stop: the on-chain deadline has already passed.");
   }
 
   if (dryRun) {
-    console.log("DRY_RUN=true: a 1 MON feed would be sent now, but no transaction was submitted.");
+    const wouldFeed = forceFeed || remaining <= thresholdSeconds;
+    console.log(
+      wouldFeed
+        ? "DRY_RUN=true: a 1 MON feed would be sent now, but no transaction was submitted."
+        : "DRY_RUN=true: all checks passed and no feed is currently needed."
+    );
+    await notifyTelegram(
+      [
+        "🧪 Simba Keeper Test Passed!",
+        "",
+        `🐱 ${catLabel(cat, catId)} is alive and connected.`,
+        `⏳ Food deadline in ${formatDuration(remaining)}`,
+        catStats(cat),
+        `💰 Keeper wallet: ${formatMon(balance)} MON`,
+        `🤖 Decision: ${wouldFeed ? "Would feed 1 MON now" : "No feed needed yet"}`,
+        "💸 Test mode spent 0 MON."
+      ].join("\n")
+    );
+    return;
+  }
+
+  if (!forceFeed && remaining > thresholdSeconds) {
+    console.log("No feed needed. Exiting without spending MON.");
+    if (dailyStatus) {
+      await notifyTelegram(
+        [
+          "🐾 Daily Simba Report",
+          "",
+          `🐱 ${catLabel(cat, catId)} is alive and cruising.`,
+          `⏳ Food deadline in ${formatDuration(remaining)}`,
+          catStats(cat),
+          `💰 Keeper wallet: ${formatMon(balance)} MON`,
+          "🤖 No feed needed — I’m watching every hour."
+        ].join("\n")
+      );
+    }
     return;
   }
 
@@ -156,16 +248,52 @@ async function main() {
   const receipt = await transaction.wait(1);
   if (!receipt || receipt.status !== 1) throw new Error("Feed transaction did not succeed");
 
-  const updated = await contract.state(catId);
+  const [updated, updatedBalance] = await Promise.all([
+    contract.state(catId),
+    provider.getBalance(wallet.address)
+  ]);
   if (!updated.alive || BigInt(updated.diesAt) <= latestDeadline) {
     throw new Error("Transaction confirmed, but the starvation deadline did not advance as expected");
   }
 
   console.log(`Feed confirmed in block ${receipt.blockNumber}.`);
   console.log(`New deadline: ${new Date(Number(updated.diesAt) * 1000).toISOString()}`);
+  await notifyTelegram(
+    [
+      "🍗 NOM NOM — Simba was fed!",
+      "",
+      `🐱 ${catLabel(updated, catId)} received 1 MON of food.`,
+      `⏳ Time left before feeding: ${formatDuration(latestRemaining)}`,
+      `🛟 New deadline: ${formatDeadline(updated.diesAt)}`,
+      catStats(updated),
+      `💰 Wallet remaining: ${formatMon(updatedBalance)} MON`,
+      `🔗 https://monadscan.com/tx/${transaction.hash}`
+    ].join("\n")
+  );
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+main().catch(async (error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(message);
+  const runUrl = workflowRunUrl();
+  try {
+    await notifyTelegram(
+      [
+        "🚨 Simba Keeper Alert",
+        "",
+        "🛑 The keeper stopped safely and needs a human look.",
+        `Reason: ${message.slice(0, 800)}`,
+        `🐱 Cat #${process.env.CAT_ID?.trim() || "69869"}`,
+        `🕒 ${new Date().toISOString()}`,
+        runUrl ? `🔧 Logs: ${runUrl}` : ""
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
+  } catch (telegramError) {
+    console.error(
+      `Telegram error alert also failed: ${telegramError instanceof Error ? telegramError.message : telegramError}`
+    );
+  }
   process.exitCode = 1;
 });
