@@ -64,6 +64,7 @@ async function main() {
   const thresholdHours = parseInteger("FEED_THRESHOLD_HOURS", 4, 1, 24);
   const thresholdSeconds = BigInt(thresholdHours) * 3600n;
   const dryRun = process.env.DRY_RUN?.toLowerCase() === "true";
+  const forceFeed = process.env.FORCE_FEED?.toLowerCase() === "true";
 
   const privateKey = required("EMOGOTCHI_PRIVATE_KEY");
   if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
@@ -104,7 +105,11 @@ async function main() {
   console.log(`Time until starvation: ${formatDuration(remaining)}`);
   console.log(`Feed threshold: ${thresholdHours}h`);
 
-  if (remaining > thresholdSeconds) {
+  if (forceFeed) {
+    console.log("Manual force-feed requested. The normal threshold is bypassed for this run only.");
+  }
+
+  if (!forceFeed && remaining > thresholdSeconds) {
     console.log("No feed needed. Exiting without spending MON.");
     return;
   }
@@ -126,8 +131,12 @@ async function main() {
     ? BigInt(latestCat.diesAt)
     : BigInt(latestCat.startsAt) + DEATH_AFTER_SECONDS;
   const latestRemaining = latestDeadline - BigInt(latestBlock.timestamp);
-  if (latestRemaining > thresholdSeconds) {
+  if (latestDeadline > deadline) {
     console.log("Another feed already extended the deadline. Exiting without spending MON.");
+    return;
+  }
+  if (!forceFeed && latestRemaining > thresholdSeconds) {
+    console.log("The cat no longer needs a feed. Exiting without spending MON.");
     return;
   }
 
