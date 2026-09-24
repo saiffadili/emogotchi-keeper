@@ -122,8 +122,15 @@ function createProvider(rpcUrl) {
 async function main() {
   const rpcUrl = process.env.RPC_URL?.trim() || "https://rpc1.monad.xyz";
   const catId = BigInt(parseInteger("CAT_ID", 69869, 1, Number.MAX_SAFE_INTEGER));
-  const thresholdHours = parseInteger("FEED_THRESHOLD_HOURS", 4, 1, 24);
+  const thresholdHours = parseInteger("FEED_THRESHOLD_HOURS", 8, 1, 24);
   const thresholdSeconds = BigInt(thresholdHours) * 3600n;
+  const warningHours = parseInteger(
+    "WARNING_THRESHOLD_HOURS",
+    Math.max(12, thresholdHours),
+    thresholdHours,
+    47
+  );
+  const warningSeconds = BigInt(warningHours) * 3600n;
   const dryRun = process.env.DRY_RUN?.toLowerCase() === "true";
   const forceFeed = process.env.FORCE_FEED?.toLowerCase() === "true";
   const dailyStatus = process.env.DAILY_STATUS?.toLowerCase() === "true";
@@ -166,6 +173,7 @@ async function main() {
   console.log(`Balance: ${formatEther(balance)} MON`);
   console.log(`Time until starvation: ${formatDuration(remaining)}`);
   console.log(`Feed threshold: ${thresholdHours}h`);
+  console.log(`Warning threshold: ${warningHours}h`);
 
   if (forceFeed) {
     console.log("Manual force-feed requested. The normal threshold is bypassed for this run only.");
@@ -199,7 +207,19 @@ async function main() {
 
   if (!forceFeed && remaining > thresholdSeconds) {
     console.log("No feed needed. Exiting without spending MON.");
-    if (dailyStatus) {
+    if (remaining <= warningSeconds) {
+      await notifyTelegram(
+        [
+          "⚠️ Simba Feeding Window Is Getting Close",
+          "",
+          `🐱 ${catLabel(cat, catId)} has ${formatDuration(remaining)} left.`,
+          `🕒 Deadline: ${formatDeadline(deadline)}`,
+          `🍗 Automatic feeding starts at ${thresholdHours}h remaining.`,
+          `💰 Keeper wallet: ${formatMon(balance)} MON`,
+          "If no feed confirmation arrives before the deadline, run the workflow manually."
+        ].join("\n")
+      );
+    } else if (dailyStatus) {
       await notifyTelegram(
         [
           "🐾 Daily Simba Report",
@@ -208,7 +228,7 @@ async function main() {
           `⏳ Food deadline in ${formatDuration(remaining)}`,
           catStats(cat),
           `💰 Keeper wallet: ${formatMon(balance)} MON`,
-          "🤖 No feed needed — I’m watching every hour."
+          `🤖 Auto-feed begins at ${thresholdHours}h remaining.`
         ].join("\n")
       );
     }
