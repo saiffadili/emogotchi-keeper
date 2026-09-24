@@ -2,9 +2,11 @@ name: Keep Emogotchi Alive
 
 on:
   schedule:
-    # Together these still run hourly. The 18:17 UTC run sends the daily status.
-    - cron: "17 0-17,19-23 * * *"
+    # Two checks per hour reduce exposure to delayed or dropped schedule events.
+    # The 18:17 UTC run sends the daily status.
+    - cron: "17,47 0-17,19-23 * * *"
     - cron: "17 18 * * *"
+    - cron: "47 18 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -50,7 +52,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RPC_URL: https://rpc1.monad.xyz
           CAT_ID: "69869"
-          FEED_THRESHOLD_HOURS: "4"
+          # GitHub skipped multiple hourly runs on 2026-09-24. Eight hours keeps
+          # enough margin for the observed five-hour scheduling gaps.
+          FEED_THRESHOLD_HOURS: "8"
+          WARNING_THRESHOLD_HOURS: "12"
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true && 'true' || 'false' }}
           FORCE_FEED: ${{ github.event_name == 'workflow_dispatch' && inputs.force_feed == true && 'true' || 'false' }}
           DAILY_STATUS: ${{ github.event_name == 'schedule' && github.event.schedule == '17 18 * * *' && 'true' || 'false' }}
