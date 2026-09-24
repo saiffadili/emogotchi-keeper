@@ -48,7 +48,7 @@ function formatDeadline(timestamp) {
 }
 
 function catLabel(cat, catId) {
-  const name = cat.name?.trim() || "Simba";
+  const name = cat.name?.trim() || "Cat";
   return `${name} #${catId}`;
 }
 
@@ -121,7 +121,7 @@ function createProvider(rpcUrl) {
 
 async function main() {
   const rpcUrl = process.env.RPC_URL?.trim() || "https://rpc1.monad.xyz";
-  const catId = BigInt(parseInteger("CAT_ID", 69869, 1, Number.MAX_SAFE_INTEGER));
+  const catId = BigInt(parseInteger("CAT_ID", 25287, 1, Number.MAX_SAFE_INTEGER));
   const thresholdHours = parseInteger("FEED_THRESHOLD_HOURS", 8, 1, 24);
   const thresholdSeconds = BigInt(thresholdHours) * 3600n;
   const warningHours = parseInteger(
@@ -166,12 +166,12 @@ async function main() {
     if (dailyStatus || dryRun || forceFeed) {
       await notifyTelegram(
         [
-          "🛑 Simba Keeper Is Paused",
+          "🛑 Emogotchi Keeper Is Paused",
           "",
           `🐱 ${catLabel(cat, catId)} is still dead.`,
           "The keeper will not spend the 1,000 MON revival fee.",
           `💰 Keeper wallet: ${formatMon(balance)} MON`,
-          "If you revive Simba manually, the automatic checks will detect it and resume."
+          "If you revive this cat manually, the automatic checks will detect it and resume."
         ].join("\n")
       );
     }
@@ -206,7 +206,7 @@ async function main() {
     );
     await notifyTelegram(
       [
-        "🧪 Simba Keeper Test Passed!",
+        "🧪 Emogotchi Keeper Test Passed!",
         "",
         `🐱 ${catLabel(cat, catId)} is alive and connected.`,
         `⏳ Food deadline in ${formatDuration(remaining)}`,
@@ -224,7 +224,7 @@ async function main() {
     if (remaining <= warningSeconds) {
       await notifyTelegram(
         [
-          "⚠️ Simba Feeding Window Is Getting Close",
+          "⚠️ Feeding Window Is Getting Close",
           "",
           `🐱 ${catLabel(cat, catId)} has ${formatDuration(remaining)} left.`,
           `🕒 Deadline: ${formatDeadline(deadline)}`,
@@ -236,7 +236,7 @@ async function main() {
     } else if (dailyStatus) {
       await notifyTelegram(
         [
-          "🐾 Daily Simba Report",
+          "🐾 Daily Emogotchi Report",
           "",
           `🐱 ${catLabel(cat, catId)} is alive and cruising.`,
           `⏳ Food deadline in ${formatDuration(remaining)}`,
@@ -294,7 +294,7 @@ async function main() {
   console.log(`New deadline: ${new Date(Number(updated.diesAt) * 1000).toISOString()}`);
   await notifyTelegram(
     [
-      "🍗 NOM NOM — Simba was fed!",
+      `🍗 NOM NOM — ${catLabel(updated, catId)} was fed!`,
       "",
       `🐱 ${catLabel(updated, catId)} received 1 MON of food.`,
       `⏳ Time left before feeding: ${formatDuration(latestRemaining)}`,
@@ -313,11 +313,11 @@ main().catch(async (error) => {
   try {
     await notifyTelegram(
       [
-        "🚨 Simba Keeper Alert",
+        "🚨 Emogotchi Keeper Alert",
         "",
         "🛑 The keeper stopped safely and needs a human look.",
         `Reason: ${message.slice(0, 800)}`,
-        `🐱 Cat #${process.env.CAT_ID?.trim() || "69869"}`,
+        `🐱 Cat #${process.env.CAT_ID?.trim() || "25287"}`,
         `🕒 ${new Date().toISOString()}`,
         runUrl ? `🔧 Logs: ${runUrl}` : ""
       ]
