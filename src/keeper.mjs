@@ -130,11 +130,11 @@ function createProvider(rpcUrl) {
 async function main() {
   const rpcUrl = process.env.RPC_URL?.trim() || "https://rpc1.monad.xyz";
   const catId = BigInt(parseInteger("CAT_ID", 25287, 1, Number.MAX_SAFE_INTEGER));
-  const thresholdHours = parseInteger("FEED_THRESHOLD_HOURS", 8, 1, 24);
+  const thresholdHours = parseInteger("FEED_THRESHOLD_HOURS", 24, 1, 24);
   const thresholdSeconds = BigInt(thresholdHours) * 3600n;
   const warningHours = parseInteger(
     "WARNING_THRESHOLD_HOURS",
-    Math.max(12, thresholdHours),
+    Math.max(26, thresholdHours),
     thresholdHours,
     47
   );
@@ -314,6 +314,7 @@ async function main() {
       `🐱 ${catLabel(updated, catId)} received 1 MON of food.`,
       `⏳ Time left before feeding: ${formatDuration(latestRemaining)}`,
       `🛟 New deadline: ${formatDeadline(updated.diesAt)}`,
+      `⏰ Next planned feed: ${formatDeadline(BigInt(updated.diesAt) - thresholdSeconds)}`,
       catStats(updated),
       `💰 Wallet remaining: ${formatMon(updatedBalance)} MON`,
       `🔗 https://monadscan.com/tx/${transaction.hash}`

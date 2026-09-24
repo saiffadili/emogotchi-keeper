@@ -3,7 +3,7 @@
 This private GitHub Actions bot keeps Emogotchi #25287 alive with the minimum practical care plan.
 
 - Requests an on-chain starvation check every 30 minutes.
-- Feeds only when eight hours or less remain.
+- Feeds when 24 hours or less remain, approximately once per day.
 - Pays exactly 1 MON per feed.
 - Never washes, plays, cleans, sleeps, names, transfers, or revives the cat.
 - Stops safely if the configured wallet is not the NFT owner, the cat is dead, the chain is wrong, or the balance is insufficient.
@@ -18,12 +18,12 @@ Never commit a private key to this repository. Never send the key in chat. Store
 
 1. Create a dedicated EVM wallet and securely back up its recovery phrase offline.
 2. Transfer Emogotchi #25287 to that wallet. The cat's existing state moves with the NFT.
-3. Fund the dedicated wallet with approximately 230 MON for one year of feeding and gas.
+3. Fund the dedicated wallet with approximately 380 MON for one year of feeding and gas.
 4. In this GitHub repository, open **Settings → Secrets and variables → Actions → New repository secret**.
 5. Name the secret `EMOGOTCHI_PRIVATE_KEY` and enter the dedicated wallet's private key, including the `0x` prefix.
 6. Open **Actions → Keep Emogotchi Alive → Run workflow**. Leave **dry_run** enabled for the first test.
 7. Check that the log reports the correct cat, owner, balance, and time remaining.
-8. The 30-minute schedule will then run automatically. Scheduled runs use live mode but only feed inside the eight-hour window.
+8. The 30-minute schedule will then run automatically. Scheduled runs use live mode but only feed when 24 hours or less remain.
 
 ## Optional one-time live feed test
 
@@ -47,7 +47,7 @@ The bot sends:
 
 - A fun daily status around 18:17 UTC with the deadline, stats, and wallet balance.
 - A detailed confirmation and MonadScan link after every successful feed.
-- An advance warning when 12 hours or less remain but it is not yet time to feed.
+- An advance warning when 26 hours or less remain but it is not yet time to feed.
 - A safety alert with the reason and GitHub log link if the keeper stops.
 - One daily paused reminder while the cat is dead; automatic feeding resumes after a manual revival.
 - A status message whenever a manual dry run succeeds.
@@ -58,19 +58,19 @@ Changes to the keeper code automatically trigger a dry run. These verification r
 
 ## Expected cost
 
-With an eight-hour safety margin, a feed occurs approximately every 40 hours:
+With a 24-hour safety margin, a feed occurs approximately every 24 hours:
 
-- About 219 MON per year in feed payments.
+- About 365.25 MON per year in feed payments.
 - Network gas is additional.
-- Keeping about 230 MON available provides a reasonable annual operating balance at recent gas levels.
+- Keeping about 380 MON available provides a reasonable annual operating balance at recent gas levels.
 
 ## Configuration
 
 The workflow defines:
 
 - `CAT_ID=25287`
-- `FEED_THRESHOLD_HOURS=8`
-- `WARNING_THRESHOLD_HOURS=12`
+- `FEED_THRESHOLD_HOURS=24`
+- `WARNING_THRESHOLD_HOURS=26`
 - `RPC_URL=https://rpc1.monad.xyz`
 
 Increasing `FEED_THRESHOLD_HOURS` feeds earlier and costs slightly more, but provides more protection against service or network outages. GitHub scheduled runs can still be delayed or dropped, so this remains a best-effort keeper rather than a hard availability guarantee.
