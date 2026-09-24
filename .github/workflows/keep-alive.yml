@@ -51,7 +51,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RPC_URL: https://rpc1.monad.xyz
-          CAT_ID: "69869"
+          CAT_ID: "25287"
           # GitHub skipped multiple hourly runs on 2026-09-24. Eight hours keeps
           # enough margin for the observed five-hour scheduling gaps.
           FEED_THRESHOLD_HOURS: "8"
@@ -73,4 +73,4 @@ jobs:
           curl --fail --silent --show-error \
             --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=🚨 Simba's keeper could not start. Check the GitHub logs: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            --data-urlencode "text=🚨 Emogotchi keeper could not start. Check the GitHub logs: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
