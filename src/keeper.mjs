@@ -161,7 +161,21 @@ async function main() {
     );
   }
   if (!cat.alive) {
-    throw new Error(`Safety stop: cat #${catId} is dead. This bot will never auto-revive for 1,000 MON.`);
+    const message = `Cat #${catId} is dead. The keeper is idle and will never auto-revive for 1,000 MON.`;
+    console.log(message);
+    if (dailyStatus || dryRun || forceFeed) {
+      await notifyTelegram(
+        [
+          "🛑 Simba Keeper Is Paused",
+          "",
+          `🐱 ${catLabel(cat, catId)} is still dead.`,
+          "The keeper will not spend the 1,000 MON revival fee.",
+          `💰 Keeper wallet: ${formatMon(balance)} MON`,
+          "If you revive Simba manually, the automatic checks will detect it and resume."
+        ].join("\n")
+      );
+    }
+    return;
   }
 
   const now = BigInt(block.timestamp);
