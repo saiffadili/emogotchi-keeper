@@ -49,6 +49,7 @@ The bot sends:
 - A detailed confirmation and MonadScan link after every successful feed.
 - An advance warning when 12 hours or less remain but it is not yet time to feed.
 - A safety alert with the reason and GitHub log link if the keeper stops.
+- One daily paused reminder while the cat is dead; automatic feeding resumes after a manual revival.
 - A status message whenever a manual dry run succeeds.
 
 The Telegram token is scoped only to the keeper step. The wallet private key is also no longer exposed to checkout or dependency-installation steps.
