@@ -1,6 +1,14 @@
 name: Keep Emogotchi Alive
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/keep-alive.yml"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
   schedule:
     # Two checks per hour reduce exposure to delayed or dropped schedule events.
     # The 18:17 UTC run sends the daily status.
@@ -56,7 +64,7 @@ jobs:
           # enough margin for the observed five-hour scheduling gaps.
           FEED_THRESHOLD_HOURS: "8"
           WARNING_THRESHOLD_HOURS: "12"
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true && 'true' || 'false' }}
+          DRY_RUN: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == true)) && 'true' || 'false' }}
           FORCE_FEED: ${{ github.event_name == 'workflow_dispatch' && inputs.force_feed == true && 'true' || 'false' }}
           DAILY_STATUS: ${{ github.event_name == 'schedule' && github.event.schedule == '17 18 * * *' && 'true' || 'false' }}
         run: npm run check
