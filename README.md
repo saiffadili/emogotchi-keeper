@@ -54,6 +54,8 @@ The bot sends:
 
 The Telegram token is scoped only to the keeper step. The wallet private key is also no longer exposed to checkout or dependency-installation steps.
 
+Changes to the keeper code automatically trigger a dry run. These verification runs read the live cat state and send a Telegram test result but never submit a feed transaction.
+
 ## Expected cost
 
 With an eight-hour safety margin, a feed occurs approximately every 40 hours:
