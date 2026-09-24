@@ -1,6 +1,6 @@
 # Emogotchi Keeper
 
-This private GitHub Actions bot keeps Emogotchi #69869 alive with the minimum practical care plan.
+This private GitHub Actions bot keeps Emogotchi #25287 alive with the minimum practical care plan.
 
 - Requests an on-chain starvation check every 30 minutes.
 - Feeds only when eight hours or less remain.
@@ -17,7 +17,7 @@ Never commit a private key to this repository. Never send the key in chat. Store
 ## One-time setup
 
 1. Create a dedicated EVM wallet and securely back up its recovery phrase offline.
-2. Transfer Emogotchi #69869 to that wallet. The cat's existing state moves with the NFT.
+2. Transfer Emogotchi #25287 to that wallet. The cat's existing state moves with the NFT.
 3. Fund the dedicated wallet with approximately 230 MON for one year of feeding and gas.
 4. In this GitHub repository, open **Settings → Secrets and variables → Actions → New repository secret**.
 5. Name the secret `EMOGOTCHI_PRIVATE_KEY` and enter the dedicated wallet's private key, including the `0x` prefix.
@@ -66,7 +66,7 @@ With an eight-hour safety margin, a feed occurs approximately every 40 hours:
 
 The workflow defines:
 
-- `CAT_ID=69869`
+- `CAT_ID=25287`
 - `FEED_THRESHOLD_HOURS=8`
 - `WARNING_THRESHOLD_HOURS=12`
 - `RPC_URL=https://rpc1.monad.xyz`
