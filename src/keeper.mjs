@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { BrowserProvider, Contract, Wallet, formatEther, parseEther } from "ethers";
 
 const MONAD_CHAIN_ID = 143n;
@@ -67,6 +68,13 @@ function workflowRunUrl() {
   const repository = process.env.GITHUB_REPOSITORY?.trim();
   const runId = process.env.GITHUB_RUN_ID?.trim();
   return repository && runId ? `https://github.com/${repository}/actions/runs/${runId}` : null;
+}
+
+function setGithubOutput(name, value) {
+  const outputFile = process.env.GITHUB_OUTPUT?.trim();
+  if (!outputFile) return;
+  const singleLine = String(value).replace(/[\r\n]+/g, " ");
+  appendFileSync(outputFile, `${name}=${singleLine}\n`, "utf8");
 }
 
 async function notifyTelegram(message) {
@@ -163,6 +171,8 @@ async function main() {
   if (!cat.alive) {
     const message = `Cat #${catId} is dead. The keeper is idle and will never auto-revive for 1,000 MON.`;
     console.log(message);
+    setGithubOutput("verification_state", "failure");
+    setGithubOutput("summary", `Cat ${catId} is dead; dry run spent 0 MON`);
     if (dailyStatus || dryRun || forceFeed) {
       await notifyTelegram(
         [
@@ -215,6 +225,11 @@ async function main() {
         `🤖 Decision: ${wouldFeed ? "Would feed 1 MON now" : "No feed needed yet"}`,
         "💸 Test mode spent 0 MON."
       ].join("\n")
+    );
+    setGithubOutput("verification_state", "success");
+    setGithubOutput(
+      "summary",
+      `Cat ${catId} alive; ${formatDuration(remaining)} left; dry run spent 0 MON`
     );
     return;
   }
