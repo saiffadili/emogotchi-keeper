@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Minimal survival keeper for one Emogotchi on Monad",
   "scripts": {
-    "check": "node src/keeper.mjs"
+    "check": "node src/keeper.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "ethers": "6.17.0"

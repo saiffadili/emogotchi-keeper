@@ -1,10 +1,20 @@
 import { appendFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { BrowserProvider, Contract, Wallet, formatEther, parseEther } from "ethers";
 
 const MONAD_CHAIN_ID = 143n;
 const CONTRACT_ADDRESS = "0xC0A0808cbAF507b80df92b22feD8D3810eAB45d5";
 const FEED_PRICE = parseEther("1");
 const DEATH_AFTER_SECONDS = 48n * 60n * 60n;
+const DEFAULT_RPC_URLS = Object.freeze([
+  "https://rpc.monad.xyz",
+  "https://rpc1.monad.xyz",
+  "https://rpc3.monad.xyz",
+  "https://rpc-mainnet.monadinfra.com"
+]);
+const RPC_REQUEST_INTERVAL_MS = 125;
+const RPC_ATTEMPT_TIMEOUT_MS = 12_000;
+const RPC_RETRY_ROUNDS = 2;
 
 const ABI = [
   "function ownerOf(uint256 id) view returns (address)",
@@ -77,6 +87,22 @@ function setGithubOutput(name, value) {
   appendFileSync(outputFile, `${name}=${singleLine}\n`, "utf8");
 }
 
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function rpcUrlsFromEnvironment() {
+  const configured = [
+    ...(process.env.RPC_URLS?.split(",") || []),
+    process.env.RPC_URL || ""
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...new Set([...configured, ...DEFAULT_RPC_URLS])];
+}
+
+class RetryableRpcError extends Error {}
+
 async function notifyTelegram(message) {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
   const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
@@ -103,32 +129,111 @@ async function notifyTelegram(message) {
   return true;
 }
 
-function createProvider(rpcUrl) {
+export function createRpcTransport(
+  rpcUrls,
+  {
+    fetchImpl = fetch,
+    requestIntervalMs = RPC_REQUEST_INTERVAL_MS,
+    requestTimeoutMs = RPC_ATTEMPT_TIMEOUT_MS,
+    retryRounds = RPC_RETRY_ROUNDS,
+    sleepImpl = sleep
+  } = {}
+) {
+  if (!Array.isArray(rpcUrls) || rpcUrls.length === 0) {
+    throw new Error("At least one Monad RPC endpoint is required");
+  }
+
   let requestId = 0;
-  const transport = {
-    async request({ method, params = [] }) {
-      const response = await fetch(rpcUrl, {
+  let nextRequestAt = 0;
+  let requestQueue = Promise.resolve();
+
+  function enqueue(task) {
+    const run = requestQueue.then(async () => {
+      const wait = Math.max(0, nextRequestAt - Date.now());
+      if (wait > 0) await sleepImpl(wait);
+      nextRequestAt = Date.now() + requestIntervalMs;
+      return task();
+    });
+    requestQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  async function callEndpoint(rpcUrl, method, params) {
+    let response;
+    try {
+      response = await fetchImpl(rpcUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: ++requestId, method, params }),
-        signal: AbortSignal.timeout(30_000)
+        signal: AbortSignal.timeout(requestTimeoutMs)
       });
-      if (!response.ok) throw new Error(`Monad RPC returned HTTP ${response.status}`);
-      const payload = await response.json();
-      if (payload.error) {
-        const error = new Error(payload.error.message || "Monad RPC error");
-        error.code = payload.error.code;
-        error.data = payload.error.data;
-        throw error;
+    } catch (error) {
+      throw new RetryableRpcError(error instanceof Error ? error.message : "network request failed");
+    }
+
+    if (!response.ok) {
+      const error = new Error(`HTTP ${response.status}`);
+      if (response.status === 429 || response.status >= 500) {
+        throw new RetryableRpcError(error.message);
       }
-      return payload.result;
+      throw error;
+    }
+
+    const payload = await response.json().catch(() => {
+      throw new RetryableRpcError("invalid JSON response");
+    });
+    if (payload.error) {
+      const message = payload.error.message || "Monad RPC error";
+      if (/rate|limit|timeout|temporar|unavailable|busy|overload/i.test(message)) {
+        throw new RetryableRpcError(message);
+      }
+      const error = new Error(message);
+      error.code = payload.error.code;
+      error.data = payload.error.data;
+      throw error;
+    }
+    return payload.result;
+  }
+
+  return {
+    async request({ method, params = [] }) {
+      const totalAttempts = rpcUrls.length * retryRounds;
+      let attempt = 0;
+      let lastError;
+
+      for (let round = 0; round < retryRounds; round += 1) {
+        for (let endpointIndex = 0; endpointIndex < rpcUrls.length; endpointIndex += 1) {
+          attempt += 1;
+          try {
+            return await enqueue(() => callEndpoint(rpcUrls[endpointIndex], method, params));
+          } catch (error) {
+            if (!(error instanceof RetryableRpcError)) throw error;
+            lastError = error;
+            console.warn(
+              `RPC attempt ${attempt}/${totalAttempts} failed on endpoint ${endpointIndex + 1}: ${error.message}`
+            );
+          }
+        }
+        if (round + 1 < retryRounds) await sleepImpl(500 * 2 ** round);
+      }
+
+      throw new Error(
+        `All ${rpcUrls.length} Monad RPC endpoints failed after ${totalAttempts} attempts. ` +
+          `Last error: ${lastError?.message || "unknown RPC error"}`
+      );
     }
   };
-  return new BrowserProvider(transport, { name: "monad", chainId: Number(MONAD_CHAIN_ID) });
 }
 
-async function main() {
-  const rpcUrl = process.env.RPC_URL?.trim() || "https://rpc1.monad.xyz";
+function createProvider(rpcUrls) {
+  return new BrowserProvider(createRpcTransport(rpcUrls), {
+    name: "monad",
+    chainId: Number(MONAD_CHAIN_ID)
+  });
+}
+
+export async function main() {
+  const rpcUrls = rpcUrlsFromEnvironment();
   const catId = BigInt(parseInteger("CAT_ID", 25287, 1, Number.MAX_SAFE_INTEGER));
   const thresholdHours = parseInteger("FEED_THRESHOLD_HOURS", 24, 1, 24);
   const thresholdSeconds = BigInt(thresholdHours) * 3600n;
@@ -148,7 +253,8 @@ async function main() {
     throw new Error("EMOGOTCHI_PRIVATE_KEY is not a valid 32-byte private key");
   }
 
-  const provider = createProvider(rpcUrl);
+  console.log(`RPC endpoints configured: ${rpcUrls.length}`);
+  const provider = createProvider(rpcUrls);
   const network = await provider.getNetwork();
   if (network.chainId !== MONAD_CHAIN_ID) {
     throw new Error(`Wrong network: expected Monad chain 143, received ${network.chainId}`);
@@ -322,7 +428,7 @@ async function main() {
   );
 }
 
-main().catch(async (error) => {
+async function handleFatalError(error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   const runUrl = workflowRunUrl();
@@ -346,4 +452,8 @@ main().catch(async (error) => {
     );
   }
   process.exitCode = 1;
-});
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(handleFatalError);
+}

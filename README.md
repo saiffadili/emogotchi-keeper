@@ -71,9 +71,11 @@ The workflow defines:
 - `CAT_ID=25287`
 - `FEED_THRESHOLD_HOURS=24`
 - `WARNING_THRESHOLD_HOURS=26`
-- `RPC_URL=https://rpc1.monad.xyz`
+- `RPC_URLS=https://rpc.monad.xyz,https://rpc1.monad.xyz,https://rpc3.monad.xyz,https://rpc-mainnet.monadinfra.com`
 
 Increasing `FEED_THRESHOLD_HOURS` feeds earlier and costs slightly more, but provides more protection against service or network outages. GitHub scheduled runs can still be delayed or dropped, so this remains a best-effort keeper rather than a hard availability guarantee.
+
+RPC requests are paced below the strictest public limit. HTTP 429, timeout, temporary-unavailable, and server errors automatically fail over across four public Monad endpoints for two rounds before Telegram receives an error alert.
 
 The 30-minute schedule uses about 1,440 billable GitHub Actions minutes in a 30-day month because private-repository jobs round up to one minute. That fits inside the 2,000-minute monthly allowance on GitHub Free if the account is not using those minutes for other private workflows.
 

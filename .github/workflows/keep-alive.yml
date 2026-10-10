@@ -59,7 +59,7 @@ jobs:
           EMOGOTCHI_PRIVATE_KEY: ${{ secrets.EMOGOTCHI_PRIVATE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RPC_URL: https://rpc1.monad.xyz
+          RPC_URLS: https://rpc.monad.xyz,https://rpc1.monad.xyz,https://rpc3.monad.xyz,https://rpc-mainnet.monadinfra.com
           CAT_ID: "25287"
           # Feed halfway through each 48-hour survival window. This leaves a
           # full day of recovery time if GitHub delays or drops scheduled runs.
